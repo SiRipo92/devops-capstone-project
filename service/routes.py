@@ -140,3 +140,8 @@ def check_content_type(media_type):
         status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         f"Content-Type must be {media_type}",
     )
+
+def test_method_not_allowed(self):
+    """It should not allow an improper method call"""
+    resp = self.client.delete(BASE_URL)
+    self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
