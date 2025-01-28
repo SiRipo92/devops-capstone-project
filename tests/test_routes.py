@@ -143,3 +143,30 @@ class TestAccountService(TestCase):
         """It should not Read an Account that's not found"""
         resp = self.client.get(f"{BASE_URL}/0")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    ######################################################################
+    #  L I S T  C U S T O M E R  A C C O U N TS
+    ######################################################################
+    # Test the happy path
+    def test_get_all_accounts(self):
+        """It should get a list of accounts"""
+        self._create_accounts(5)
+        resp = self.client.get(BASE_URL)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(len(data), 5)
+
+    def test_get_all_accounts_empty(self):
+        """It should return an empty list when no accounts exist"""
+        # Ensure no accounts are in the system (if _create_accounts is persistent, you might not need this)
+        self._create_accounts(0)  # You may not need to call this depending on your setup
+        
+        # Simulate a GET request to list all accounts
+        resp = self.client.get(BASE_URL)
+        
+        # Assert the status code is 200 OK
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        # Assert the response is an empty list
+        data = resp.get_json()
+        self.assertEqual(len(data), 0)  # Should return 0 accounts
