@@ -145,7 +145,7 @@ class TestAccountService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     ######################################################################
-    #  L I S T  C U S T O M E R  A C C O U N TS
+    #  L I S T  C U S T O M E R  A C C O U N T S
     ######################################################################
     # Test the happy path
     def test_get_all_accounts(self):
@@ -170,3 +170,21 @@ class TestAccountService(TestCase):
         # Assert the response is an empty list
         data = resp.get_json()
         self.assertEqual(len(data), 0)  # Should return 0 accounts
+
+    ######################################################################
+    #  U P D A T E  A  C U S T O M E R  A C C O U N T
+    ######################################################################
+    def test_update_found_account(self):
+        """It should update an existing account"""
+        # First, create an account to update
+        test_account = AccountFactory()
+        resp = self.client.post(BASE_URL, json=test_account.serialize())
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        # Second, update retrieved account
+        new_account = resp.get_json()
+        new_account["name"] = "Something Known"
+        resp = self.client.put(f"{BASE_URL}/{new_account['id']}", json=new_account)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        updated_account = resp.get_json()
+        self.assertEqual(updated_account["name"], "Something Known")
