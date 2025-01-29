@@ -12,12 +12,14 @@ from tests.factories import AccountFactory
 from service.common import status  # HTTP Status Codes
 from service.models import db, Account, init_db
 from service.routes import app
+from service import talisman
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
 )
 
 BASE_URL = "/accounts"
+HTTPS_ENVIRON = {'wsgi.url_scheme': 'https'}
 
 
 ######################################################################
@@ -34,6 +36,7 @@ class TestAccountService(TestCase):
         app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
         app.logger.setLevel(logging.CRITICAL)
         init_db(app)
+        talisman.force_https = False
 
     @classmethod
     def tearDownClass(cls):
@@ -180,14 +183,43 @@ class TestAccountService(TestCase):
         test_account = AccountFactory()
         resp = self.client.post(BASE_URL, json=test_account.serialize())
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        print(f"Response after POST: {resp.get_json()}")  # Debugging print
+
+        # Ensure account was created and has an ID
+        new_account = resp.get_json()
+        self.assertIn("id", new_account)  # Check if account has an ID
+
+        # Optional: Check the account exists
+        resp_get = self.client.get(f"{BASE_URL}/{new_account['id']}")
+        self.assertEqual(resp_get.status_code, status.HTTP_200_OK)
 
         # Second, update retrieved account
-        new_account = resp.get_json()
         new_account["name"] = "Something Known"
         resp = self.client.put(f"{BASE_URL}/{new_account['id']}", json=new_account)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         updated_account = resp.get_json()
+
+        # Ensure the update was successful
         self.assertEqual(updated_account["name"], "Something Known")
+        print(f"Response after PUT: {updated_account}")  # Debugging print
+
+    def test_update_account_not_found(self):
+        """It should return 404 when updating a non-existent account"""
+        # Attempt to update an account with an ID that does not exist
+        non_existent_account_id = 999999  # This ID does not exist
+        response = self.client.put(
+            f"{BASE_URL}/{non_existent_account_id}",
+            json={"name": "Updated Name", "email": "updated@example.com"},
+            content_type="application/json"
+        )
+
+        # Assert that the status code is 404 NOT FOUND
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Optionally, check the response message to see if it includes the correct error message
+        data = response.get_json()
+        self.assertIn("Account with id", data["message"])
+        self.assertIn(f"{non_existent_account_id}", data["message"])
 
     ######################################################################
     #  D E L E T E  A   C U S T O M E R  A C C O U N T
@@ -197,3 +229,26 @@ class TestAccountService(TestCase):
         account = self._create_accounts(1)[0]
         resp = self.client.delete(f"{BASE_URL}/{account.id}")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    ######################################################################
+    #  S E C U R I T Y   H E A D E R S
+    ######################################################################
+    def test_security_headers(self):
+        """It should return security headers"""
+        response = self.client.get('/', environ_overrides=HTTPS_ENVIRON)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        headers = {
+            'X-Frame-Options': 'SAMEORIGIN',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Security-Policy': 'default-src \'self\'; object-src \'none\'',
+            'Referrer-Policy': 'strict-origin-when-cross-origin'
+        }
+        for key, value in headers.items():
+            self.assertEqual(response.headers.get(key), value)
+
+    def test_cors_security(self):
+        """It should return a CORS header"""
+        response = self.client.get('/', environ_overrides=HTTPS_ENVIRON)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check for the CORS header
+        self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), '*')
