@@ -160,13 +160,13 @@ class TestAccountService(TestCase):
         """It should return an empty list when no accounts exist"""
         # Ensure no accounts are in the system (if _create_accounts is persistent, you might not need this)
         self._create_accounts(0)  # You may not need to call this depending on your setup
-        
+
         # Simulate a GET request to list all accounts
         resp = self.client.get(BASE_URL)
-        
+
         # Assert the status code is 200 OK
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        
+
         # Assert the response is an empty list
         data = resp.get_json()
         self.assertEqual(len(data), 0)  # Should return 0 accounts
