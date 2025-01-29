@@ -77,7 +77,7 @@ spec:
       - name: IMAGE
         value: "$(params.build-image)"
       runAfter:
-        - clone
+        - tests
         - lint
 
     - name: deploy
